@@ -874,7 +874,9 @@ static int compact_conversation(struct agent_state *state, const char *instructi
         clear_resume_state(state);
     switch (result.outcome) {
     case COMPACT_COMPLETE:
-        compact_notice(render, "conversation compacted");
+        compact_notice(render, result.shrunk ? "conversation compacted from a shortened view — the "
+                                               "full history stays in the session"
+                                             : "conversation compacted");
         break;
     case COMPACT_CANCELLED:
         compact_notice(render, "compaction cancelled");

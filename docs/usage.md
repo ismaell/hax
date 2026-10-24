@@ -263,6 +263,15 @@ window. Use `/compact` earlier when the conversation has accumulated obsolete ex
 optionally naming what the summary must preserve. Manual compaction works even when the model's
 context limit is unknown.
 
+Compaction sends the whole conversation to the model, so it can fail for the same reason the
+conversation needs it: the model refuses a request too large for its context window. hax then
+retries, at most three times, on a shortened view: first with long tool output and arguments
+clipped, then without the older half of the earlier exchanges, then with only the latest request
+and the last exchange. The summary says that earlier details may be missing, and the notice reads
+"compacted from a shortened view". Only the summarization request is shortened: the session keeps
+the full history. When even the latest exchange does not fit, compaction fails and says so; start a
+new conversation or switch to a model with a larger window.
+
 For local servers, configure a context window large enough for the system prompt, project context,
 conversation, and response. A small server-side context often appears as truncated answers rather
 than a hax error; see the provider-specific notes in [providers.md](./providers.md).

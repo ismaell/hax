@@ -7,6 +7,13 @@ notes (see [docs/releasing.md](docs/releasing.md)).
 
 ## [Unreleased]
 
+### Added
+
+- Compaction still works when the conversation no longer fits the model's context window. A
+  summarization request the model refuses for size is retried on a shortened view, with long tool
+  output clipped and then older exchanges omitted, and the notice says so. The session keeps the
+  full history.
+
 ### Changed
 
 - Prompts are sent without leading blank lines or trailing whitespace, so a paste or Ctrl+G edit

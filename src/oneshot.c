@@ -53,7 +53,9 @@ static int compact_cancelled(void *user)
     return interrupt_abort_requested() || interrupt_pause_requested();
 }
 
-static int compact_context(struct oneshot_state *state)
+/* Returns whether the conversation was compacted; `shrunk` reports a summary of a shortened
+ * view and may be NULL. */
+static int compact_context(struct oneshot_state *state, int *shrunk)
 {
     struct compact_params params = {
         .session = &state->session,
@@ -66,6 +68,8 @@ static int compact_context(struct oneshot_state *state)
 
     compact_run(&params, &result);
     int completed = result.outcome == COMPACT_COMPLETE;
+    if (shrunk)
+        *shrunk = result.shrunk;
     compact_result_destroy(&result);
     return completed;
 }
@@ -74,10 +78,12 @@ static void auto_compact(void *user)
 {
     struct oneshot_state *state = user;
 
-    if (!compact_context(state) || state->json)
+    int shrunk;
+    if (!compact_context(state, &shrunk) || state->json)
         return;
     int tty = isatty(fileno(stderr));
-    fprintf(stderr, "%s[compacted context]%s\n", tty ? ANSI_DIM : "", tty ? ANSI_RESET : "");
+    fprintf(stderr, "%s[compacted context%s]%s\n", tty ? ANSI_DIM : "",
+            shrunk ? " from a shortened view" : "", tty ? ANSI_RESET : "");
 }
 
 /* The --json stream on stdout; docs/sessions.md is the record contract. On a write failure

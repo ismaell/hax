@@ -44,10 +44,14 @@ struct compact_params {
 struct compact_result {
     enum compact_outcome outcome;
     int attempts;
+    /* The summary covers a shortened view: tool output was clipped or earlier exchanges were
+     * omitted to fit the model's context window. The session still holds the full history. */
+    int shrunk;
     char *error_message;
 };
 
-/* Summarize the current model-visible context and append a seed on success. Every attempt's
+/* Summarize the current model-visible context and append a seed on success. A request the model
+ * refuses for size is retried a bounded number of times on shortened views. Every attempt's
  * reported usage is appended to the session and both logs are flushed. The result owns
  * `error_message`. */
 void compact_run(const struct compact_params *params, struct compact_result *result);
