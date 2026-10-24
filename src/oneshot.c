@@ -74,16 +74,20 @@ static int compact_context(struct oneshot_state *state, int *shrunk)
     return completed;
 }
 
-static void auto_compact(void *user)
+static int auto_compact(enum agent_loop_compact_reason reason, void *user)
 {
     struct oneshot_state *state = user;
 
     int shrunk;
-    if (!compact_context(state, &shrunk) || state->json)
-        return;
+    int compacted = compact_context(state, &shrunk);
+    if (!compacted || state->json)
+        return compacted;
     int tty = isatty(fileno(stderr));
-    fprintf(stderr, "%s[compacted context%s]%s\n", tty ? ANSI_DIM : "",
+    fprintf(stderr, "%s[%scompacted context%s]%s\n", tty ? ANSI_DIM : "",
+            reason == AGENT_LOOP_COMPACT_OVERFLOW ? "request too large for the context window; "
+                                                  : "",
             shrunk ? " from a shortened view" : "", tty ? ANSI_RESET : "");
+    return compacted;
 }
 
 /* The --json stream on stdout; docs/sessions.md is the record contract. On a write failure
@@ -593,7 +597,7 @@ int oneshot_run(struct provider *provider, const char *prompt, const struct hax_
     /* The REPL's deferred compaction before a send: the loop compacts only at seams it reaches
      * itself, so a resumed record over the threshold is compacted here. */
     if (state.compact_owed)
-        auto_compact(&state);
+        auto_compact(AGENT_LOOP_COMPACT_THRESHOLD, &state);
 
     struct agent_loop_result loop_result;
     if (interrupt_abort_requested() || interrupt_pause_requested()) {

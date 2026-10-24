@@ -13,6 +13,9 @@ notes (see [docs/releasing.md](docs/releasing.md)).
   summarization request the model refuses for size is retried on a shortened view, with long tool
   output clipped and then older exchanges omitted, and the notice says so. The session keeps the
   full history.
+- A request the model refuses because the conversation no longer fits its context window is
+  compacted and sent again, so the turn continues instead of failing, even when the model's
+  context limit is unknown. The refusal never shows as an error when the retry recovers it.
 
 ### Changed
 

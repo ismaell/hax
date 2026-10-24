@@ -272,6 +272,15 @@ and the last exchange. The summary says that earlier details may be missing, and
 the full history. When even the latest exchange does not fit, compaction fails and says so; start a
 new conversation or switch to a model with a larger window.
 
+When the model refuses an ordinary request because the conversation no longer fits its context
+window, hax compacts the conversation and sends the request again, so the turn continues instead of
+failing. This works even when the context limit is unknown. The refusal is recognized from the
+provider's error code, or from wording that names the context window, on an HTTP 400 or 413 or an
+error inside the stream; rate limits and server errors never count. A request is sent again only
+if the model showed no output for it, at most once per request: a refusal of the retried request
+ends the turn. Automatic compaction covers this recovery, so `compact.auto=off` leaves the refusal
+to you.
+
 For local servers, configure a context window large enough for the system prompt, project context,
 conversation, and response. A small server-side context often appears as truncated answers rather
 than a hax error; see the provider-specific notes in [providers.md](./providers.md).

@@ -181,4 +181,34 @@ def test_sigint_then_resume():
     harness.expect(records[-1].get("outcome") == "complete", "the resumed result completes", result)
 
 
+def test_compacts_after_an_oversized_request():
+    """A request the model refuses for size is compacted and sent again: the run answers instead of
+    failing, and stderr names the recovery rather than the refusal."""
+    result = harness.run_oneshot(
+        "keep going",
+        """
+        error This model's maximum context length is 8192 tokens.
+        end-turn
+
+        text ## Goal
+        end-turn
+
+        text Answered after compaction.
+        end-turn
+        """,
+    )
+    harness.expect(result.returncode == 0, "the run completes", result)
+    harness.expect(
+        "Answered after compaction." in result.stdout, "the retried request reaches stdout", result
+    )
+    harness.expect(
+        "[request too large for the context window; compacted context]" in result.stderr,
+        "stderr names the recovery",
+        result,
+    )
+    harness.expect(
+        "maximum context length" not in result.stderr, "the refusal does not reach stderr", result
+    )
+
+
 harness.main(globals())
