@@ -246,4 +246,15 @@ hax_exe = executable('hax',
     install: true,
 )
 
+# Generate and install the man page from the project's sources of truth.
+python3 = find_program('python3')
+man_page = custom_target('hax.1',
+    input: ['scripts/gen_mdoc.py', 'README.md', 'src/cli.c', 'src/config.c'],
+    output: 'hax.1',
+    command: [python3, '@INPUT0@', '@OUTPUT@', meson.project_source_root()],
+    build_by_default: true,
+    install: true,
+    install_dir: get_option('mandir') / 'man1',
+)
+
 subdir('tests')

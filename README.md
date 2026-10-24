@@ -9,6 +9,25 @@
 
 </div>
 
+## Description
+
+hax is a single small binary that acts as a coding agent in the terminal. It talks to OpenAI,
+Anthropic, OpenRouter and compatible providers, to a ChatGPT/codex account, or to local models
+through llama.cpp and ollama. Unlike a web chat it runs in the native terminal scrollback, keeps the
+working directory as the unit of context, reads and edits files, and runs commands as a subprocess.
+
+It extends through configuration, markdown files and subprocesses rather than a plugin runtime.
+There are no MCP marketplaces, no IDE panels, and no per-command permission prompts.
+
+With no arguments hax starts an interactive REPL. A bare first word that names a preset is shorthand
+for --preset, so `hax review` means `hax --preset review` and the same works with --print. In one-
+shot mode the final answer goes to standard output, while the provider banner, usage statistics,
+errors and the resume hint go to standard error, so `hax -p` is safe to pipe without losing
+diagnostics.
+
+hax is not a security boundary. It executes shell commands on the model's behalf without per-command
+approval. Use operating-system-level isolation for untrusted work.
+
 ## Key features
 
 - **Lightweight by design** — A single native C binary with a small dependency set.
@@ -132,6 +151,26 @@ tells hax when to use it:
   fetching.
 - [hax-mcp](https://github.com/OleksandrChekhovskyi/hax-mcp) — tools of MCP servers, with
   definitions entering the model's context only as a task needs them.
+
+## Files
+
+~/.config/hax/config.json
+    User configuration file.
+
+~/.config/hax/AGENTS.md
+    Project-level instructions read when running in a project directory.
+
+~/.config/hax/skills/
+    User-installed skills.
+
+$XDG_STATE_HOME/hax/state.json
+    Runtime state: last provider, model, and session selection.
+
+$XDG_STATE_HOME/hax/sessions/
+    Recorded conversation sessions, one directory per working directory.
+
+$XDG_STATE_HOME/hax/auth.json
+    Stored provider credentials.
 
 ## More docs
 
