@@ -814,8 +814,10 @@ static void compact_notice(struct render_ctx *render, const char *format, ...)
     disp_flush(&render->disp);
 }
 
-/* As agent_compact(), but leaves the status row up for the work that follows. */
-static int compact_conversation(struct agent_state *state, const char *instructions, int automatic)
+/* As agent_compact(), but leaves the status row up for the work that follows. `keep_request`
+ * marks a compaction inside a user turn, whose request the seed quotes. */
+static int compact_conversation(struct agent_state *state, const char *instructions, int automatic,
+                                int keep_request)
 {
     struct agent_session *session = state->session;
     struct provider *provider = state->provider;
@@ -850,6 +852,7 @@ static int compact_conversation(struct agent_state *state, const char *instructi
         .session_log = state->session_log,
         .transcript_log = state->transcript,
         .instructions = instructions,
+        .keep_request = keep_request,
         .hooks =
             {
                 .user = render,
@@ -907,7 +910,7 @@ static int compact_conversation(struct agent_state *state, const char *instructi
 
 int agent_compact(struct agent_state *state, const char *instructions, int automatic)
 {
-    int compacted = compact_conversation(state, instructions, automatic);
+    int compacted = compact_conversation(state, instructions, automatic, 0);
     render_finish(state->render);
     return compacted;
 }
@@ -966,7 +969,7 @@ static int repl_loop_compact(enum agent_loop_compact_reason reason, void *user)
     struct repl_loop_ctx *ctx = user;
     if (reason == AGENT_LOOP_COMPACT_OVERFLOW)
         compact_notice(ctx->state->render, "request too large for the context window — compacting");
-    int compacted = compact_conversation(ctx->state, NULL, 1);
+    int compacted = compact_conversation(ctx->state, NULL, 1, 1);
     /* Preserve cancellation for the loop checkpoint; otherwise re-arm after compaction. */
     if (!interrupt_abort_requested() && !interrupt_pause_requested()) {
         interrupt_clear_requests();

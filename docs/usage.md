@@ -281,6 +281,10 @@ if the model showed no output for it, at most once per request: a refusal of the
 ends the turn. Automatic compaction covers this recovery, so `compact.auto=off` leaves the refusal
 to you.
 
+A compaction in the middle of a user turn, whether on the threshold or to recover a refused
+request, quotes your prompt verbatim after the summary, so the work continues on your own words
+rather than the summary's account of them. A prompt over 8 KiB is left to the summary.
+
 For local servers, configure a context window large enough for the system prompt, project context,
 conversation, and response. A small server-side context often appears as truncated answers rather
 than a hax error; see the provider-specific notes in [providers.md](./providers.md).

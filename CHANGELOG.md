@@ -16,6 +16,8 @@ notes (see [docs/releasing.md](docs/releasing.md)).
 - A request the model refuses because the conversation no longer fits its context window is
   compacted and sent again, so the turn continues instead of failing, even when the model's
   context limit is unknown. The refusal never shows as an error when the retry recovers it.
+- A compaction in the middle of a user turn keeps the prompt being worked on verbatim after the
+  summary, so the agent continues on the user's own words rather than a paraphrase.
 
 ### Changed
 

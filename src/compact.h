@@ -38,6 +38,9 @@ struct compact_params {
     struct session_log *session_log;
     struct transcript_log *transcript_log;
     const char *instructions;
+    /* A user turn is in progress: the seed quotes its request verbatim, so the work continues on
+     * the user's own words rather than the summary's account of them. */
+    int keep_request;
     struct compact_hooks hooks;
 };
 

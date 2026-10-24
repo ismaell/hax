@@ -266,14 +266,16 @@ static void init_session(struct agent_session *session)
                          (struct item){.kind = ITEM_USER_MESSAGE, .text = xstrdup("old history")});
 }
 
-static struct compact_result run_compaction(struct agent_session *session,
-                                            struct provider *provider,
-                                            struct session_log *session_log)
+static struct compact_result run_compaction_keeping(struct agent_session *session,
+                                                    struct provider *provider,
+                                                    struct session_log *session_log,
+                                                    int keep_request)
 {
     struct compact_params params = {
         .session = session,
         .provider = provider,
         .session_log = session_log,
+        .keep_request = keep_request,
         .hooks =
             {
                 .on_event = observe_event,
@@ -283,6 +285,13 @@ static struct compact_result run_compaction(struct agent_session *session,
     struct compact_result result;
     compact_run(&params, &result);
     return result;
+}
+
+static struct compact_result run_compaction(struct agent_session *session,
+                                            struct provider *provider,
+                                            struct session_log *session_log)
+{
+    return run_compaction_keeping(session, provider, session_log, 0);
 }
 
 static void test_applies_summary(void)
@@ -718,6 +727,60 @@ static void test_cancel_stops_shrinking(void)
     agent_session_free(&session);
 }
 
+static const char *seed_text(const struct agent_session *session)
+{
+    struct context window = agent_session_context(session);
+    return window.n_items > 0 && window.items[0].origin == ITEM_ORIGIN_COMPACT_SEED
+               ? window.items[0].text
+               : "";
+}
+
+/* Inside a user turn the seed quotes the request verbatim; outside one it does not. */
+static void test_keeps_the_request_in_progress(void)
+{
+    struct agent_session session;
+    init_empty_session(&session);
+    agent_session_add_user(&session, "rename `foo_bar` to `baz` in src/");
+    agent_session_append(&session, (struct item){.kind = ITEM_ASSISTANT_MESSAGE,
+                                                 .text = xstrdup("Looking at src/")});
+    struct provider provider = {.name = "test", .stream = mock_stream};
+
+    reset_mock(MOCK_SUCCESS);
+    struct compact_result result = run_compaction(&session, &provider, NULL);
+    EXPECT(result.outcome == COMPACT_COMPLETE);
+    EXPECT(strstr(seed_text(&session), "verbatim") == NULL);
+    compact_result_destroy(&result);
+
+    /* The request now predates the window; a second compaction still finds it. */
+    reset_mock(MOCK_SUCCESS);
+    result = run_compaction_keeping(&session, &provider, NULL, 1);
+    EXPECT(result.outcome == COMPACT_COMPLETE);
+    EXPECT(strstr(seed_text(&session), "The request being worked on, verbatim:\n\nrename "
+                                       "`foo_bar` to `baz` in src/") != NULL);
+    compact_result_destroy(&result);
+    agent_session_free(&session);
+}
+
+/* A request too long to quote is left to the summary. */
+static void test_leaves_a_long_request_to_the_summary(void)
+{
+    struct agent_session session;
+    init_empty_session(&session);
+    char *prompt = xmalloc(9001);
+    memset(prompt, 'p', 9000);
+    prompt[9000] = '\0';
+    agent_session_add_user(&session, prompt);
+    free(prompt);
+    struct provider provider = {.name = "test", .stream = mock_stream};
+    reset_mock(MOCK_SUCCESS);
+
+    struct compact_result result = run_compaction_keeping(&session, &provider, NULL, 1);
+    EXPECT(result.outcome == COMPACT_COMPLETE);
+    EXPECT(strstr(seed_text(&session), "verbatim") == NULL);
+    compact_result_destroy(&result);
+    agent_session_free(&session);
+}
+
 int main(void)
 {
     /* Outside any repository, so recorded sessions neither run git nor depend on the checkout. */
@@ -741,5 +804,7 @@ int main(void)
     test_reports_an_irreducible_request();
     test_reports_the_latest_failure();
     test_cancel_stops_shrinking();
+    test_keeps_the_request_in_progress();
+    test_leaves_a_long_request_to_the_summary();
     T_REPORT();
 }

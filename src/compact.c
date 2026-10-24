@@ -98,8 +98,28 @@ static char *build_summary_prompt(const char *instructions, int shrunk)
                      instructions && *instructions ? instructions : "");
 }
 
-static char *build_summary_seed(const char *summary)
+/* A longer request is left to the summary: quoting it would make the seed nearly as large as a
+ * request the model may just have refused. */
+#define KEPT_REQUEST_MAX_BYTES 8192
+
+/* The newest prompt the user typed, or NULL. It may predate the context window when an earlier
+ * compaction in the same user turn already summarized it. */
+static const char *latest_request(const struct agent_session *session)
 {
+    for (size_t i = session->n_items; i-- > 0;) {
+        const struct item *item = &session->items[i];
+        if (item->kind == ITEM_USER_MESSAGE && item->origin == ITEM_ORIGIN_NONE)
+            return item->text;
+    }
+    return NULL;
+}
+
+/* `request` is quoted after the summary when non-NULL. */
+static char *build_summary_seed(const char *summary, const char *request)
+{
+    if (request)
+        return xasprintf("%s\n\n%s\n\nThe request being worked on, verbatim:\n\n%s",
+                         COMPACT_SEED_PREAMBLE, summary, request);
     return xasprintf("%s\n\n%s", COMPACT_SEED_PREAMBLE, summary);
 }
 
@@ -517,12 +537,14 @@ static char *generate_shrunk_summary(const struct compact_params *params, struct
 }
 
 /* The boundary prevents the seed from rendering as part of the preceding assistant turn. */
-static void append_summary_seed(struct agent_session *session, const char *summary)
+static void append_summary_seed(struct agent_session *session, const char *summary,
+                                const char *request)
 {
+    char *seed = build_summary_seed(summary, request);
     agent_session_add_boundary(session);
     agent_session_append(session, (struct item){
                                       .kind = ITEM_USER_MESSAGE,
-                                      .text = build_summary_seed(summary),
+                                      .text = seed,
                                       .origin = ITEM_ORIGIN_COMPACT_SEED,
                                   });
 }
@@ -604,7 +626,10 @@ void compact_run(const struct compact_params *params, struct compact_result *res
     /* Rejected attempts are part of the summarized prefix; accepted usage follows the seed. */
     size_t accepted_usage_index = sink.attempt_log.count ? sink.attempt_log.count - 1 : 0;
     append_attempt_usage(params, &sink.attempt_log, 0, accepted_usage_index);
-    append_summary_seed(params->session, summary);
+    const char *request = params->keep_request ? latest_request(params->session) : NULL;
+    if (request && strlen(request) > KEPT_REQUEST_MAX_BYTES)
+        request = NULL;
+    append_summary_seed(params->session, summary, request);
     free(summary);
     append_attempt_usage(params, &sink.attempt_log, accepted_usage_index, sink.attempt_log.count);
     attempt_log_free(&sink.attempt_log);

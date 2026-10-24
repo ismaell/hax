@@ -211,4 +211,34 @@ def test_compacts_after_an_oversized_request():
     )
 
 
+def test_recovery_keeps_the_request():
+    """The compaction that recovers a refused request quotes the prompt in its seed."""
+    result = harness.run_oneshot(
+        "rename foo_bar to baz",
+        """
+        error prompt is too long: 9000 tokens > 8192 maximum
+        end-turn
+
+        text ## Goal
+        end-turn
+
+        text Renamed.
+        end-turn
+        """,
+        extra_args=["--json"],
+    )
+    harness.expect(result.returncode == 0, "the run completes", result)
+    seeds = [
+        record
+        for record in map(json.loads, result.stdout.splitlines())
+        if record.get("origin") == "compact_seed"
+    ]
+    harness.expect(len(seeds) == 1, "the recovery compacted once", result)
+    harness.expect(
+        seeds and "verbatim:\n\nrename foo_bar to baz" in seeds[0].get("text", ""),
+        "the seed quotes the request",
+        result,
+    )
+
+
 harness.main(globals())
